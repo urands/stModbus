@@ -29,64 +29,99 @@
  * @package     stModbus
  */
 
-#ifndef _STMODBUS_H_
-#define _STMODBUS_H_
+#ifndef _STMODBUS_DEFINE_H_
+#define _STMODBUS_DEFINE_H_
+
+#include "modbus_conf.h"
 
 #ifdef _cplusplus
 extern          "C"
 {
 #endif
 
+#if ( STMODBUS_USE_CRITICAL_SECTIONS == 0 )
+    #define stmbEnterCriticalSection
+    #define stmbLeaveCriticalSection
+#else
 
-//-------- <<< Use Configuration Wizard in Context Menu >>> --------------------
-
-// <q>  Use Modbus-RTU
-#define STMODBUS_USE_RTU 1
-// <q>  Use Modbus-ASCII
-#define STMODBUS_USE_ASCII 0
-// <q>  Use critical sections (recommended)
-#define STMODBUS_USE_CRITICAL_SECTIONS 0
-// <o> Count modbus context
-// <i> Don't set a lot of count for memory saving
-#define STMODBUS_COUNT_CONTEXT 1
-
-
-
-
-//   <o> Debug information messages level <0=>Off <1=>Low <2=>Medium <3=>High
-//	 <i> Debug information messages sending or stop  on warnings
-#define STACKOS_DEBUG							3
-#if ( STACKOS_DEBUG > 3 )
-    #error "Invalid debug information messages level!"
+#ifndef stmbEnterCriticalSection
+    #error "If you use RTOS/FreeRTOS plese define mutex '#define stmbEnterCriticalSection mutex.lock' or empty"
 #endif
 
-//	<h> Default Stack OS module parameters
-//<o> Debug information messages level <4=>idle (lowest) <5=>low <6=>below normal <0=>normal (default) <1=>above normal <2=>high <3=>realtime (highest)
-//<i> Thread priority
-#define STACKOS_MODULE_THREAD_LEVEL 0
-//<o> Thread stack size
-//<i> Thread
-#define STACKOS_MODULE_THREAD_STACK 0
-//	</h>
+#ifndef stmbLeaveCriticalSection
+    #error "If you use RTOS/FreeRTOS plese define mutex '#define stmbLeaveCriticalSection mutex.unlock' or empty"
+#endif
+
+#endif
+
+#if ( STMODBUS_COUNT_CONTEXT < 1 )
+    #error "Count modbus context must be more then 0"
+#endif
+	
+
+/*  Typedef definition */
+#include <stdint.h>
+
+typedef enum {
+    MBUS_OK = 0,
+    MBUS_ERROR = -1
+} mbus_status_t;
+
+typedef enum {
+    MBUS_FUNC_COILS = 1,
+    MBUS_FUNC_DISCRETE = 2,
+    MBUS_FUNC_HOLD_REGS = 3,
+    MBUS_FUNC_REGS = 4,
+} Modbus_ConnectFuncType;
 
 
+typedef int8_t mbus_t;
+
+/* Simple function for many usage
+ *
+*/
+typedef void (*stmbFunc)(void);
+
+typedef void (*stmbCallBackFunc)(uint8_t func, uint16_t address, uint16_t size);
+
+typedef struct __stmodbus_context_t {
+    uint8_t     open;
+    stmbCallBackFunc func[255];
+    stmbFunc    lock;
+    stmbFunc    unlock;
+
+} _stmodbus_context_t;
 
 
-//	<e> Enable test unit (Benchmark)
-#define STOS_TESTUNIT 1
-// <q> Enable exclusive test unit
-#define STOS_TESTUNIT_EXCLUSIVE 0
-//	</e>
+/*  Function  definition */
 
-//-------- <<< end of configuration section >>>    --------------------
+/*
+ * function mbus_open()
+ * open new modbus context for new port
+ * return: MODBUS_ERROR - if can't open context
+*/
+mbus_t mbus_open(stmbFunc lock, stmbFunc unlock);
+
+/*
+ * function mbus_close()
+ * close modbus context
+ * return: none
+*/
+void   mbus_close(mbus_t mb_context);
+
+/*
+ * function mbus_connect()
+ * connect function to callback modbus context
+ * return: none
+*/
+mbus_status_t mbus_connect(mbus_t mb_context, stmbCallBackFunc func, Modbus_ConnectFuncType type );
 
 
-#include "mbdefine.h"
-#include "mbutils.h"
+mbus_status_t mbus_response(void);
 
 
 #ifdef _cplusplus
 }
 #endif
 
-#endif // _STMODBUS_H_
+#endif // _STMODBUS_DEFINE_H_

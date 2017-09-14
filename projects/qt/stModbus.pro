@@ -31,7 +31,7 @@ SOURCES +=  \
 
 HEADERS +=  \
     ../../include/modbus.h \
-    ../../include/mbdefine.h \
+    ../../include/modbus_conf.h \
     ../../include/mbutils.h \
 
 

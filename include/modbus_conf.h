@@ -29,60 +29,63 @@
  * @package     stModbus
  */
 
-#include "modbus.h"
+#ifndef _STMODBUS_H_
+#define _STMODBUS_H_
+
+#ifdef _cplusplus
+extern          "C"
+{
+#endif
 
 
-//Global variable for modbus context
-_stmodbus_context_t g_mbusContext[STMODBUS_COUNT_CONTEXT];
+//-------- <<< Use Configuration Wizard in Context Menu >>> --------------------
 
-void lock(){
+// <q>  Use Modbus-RTU
+#define STMODBUS_USE_RTU 1
+// <q>  Use Modbus-ASCII
+#define STMODBUS_USE_ASCII 0
+// <q>  Use critical sections (recommended)
+#define STMODBUS_USE_CRITICAL_SECTIONS 0
+// <o> Count modbus context
+// <i> Don't set a lot of count for memory saving
+#define STMODBUS_COUNT_CONTEXT 1
 
 
+
+
+//   <o> Debug information messages level <0=>Off <1=>Low <2=>Medium <3=>High
+//	 <i> Debug information messages sending or stop  on warnings
+#define STACKOS_DEBUG							3
+#if ( STACKOS_DEBUG > 3 )
+    #error "Invalid debug information messages level!"
+#endif
+
+//	<h> Default Stack OS module parameters
+//<o> Debug information messages level <4=>idle (lowest) <5=>low <6=>below normal <0=>normal (default) <1=>above normal <2=>high <3=>realtime (highest)
+//<i> Thread priority
+#define STACKOS_MODULE_THREAD_LEVEL 0
+//<o> Thread stack size
+//<i> Thread
+#define STACKOS_MODULE_THREAD_STACK 0
+//	</h>
+
+
+
+
+//	<e> Enable test unit (Benchmark)
+#define STOS_TESTUNIT 1
+// <q> Enable exclusive test unit
+#define STOS_TESTUNIT_EXCLUSIVE 0
+//	</e>
+
+//-------- <<< end of configuration section >>>    --------------------
+
+
+#include "mbutils.h"
+
+
+#ifdef _cplusplus
 }
+#endif
 
-void unlock(){
-
-}
-
-
-void test(){
-
-    mbus_t modbus = mbus_open(&lock, &unlock);
-
-
-
-
-    mbus_close(modbus);
-
-
-}
-
-
-
-
-/*
- * function mbus_open()
- * open new modbus context for new port
- * return: MODBUS_ERROR - if can't open context
-*/
-mbus_t mbus_open(stmbFunc lock, stmbFunc unlock){
-    mbus_t context;
-
-    if ( ( lock == 0 ) || (unlock == 0 )) return MBUS_ERROR;
-
-    for( context = 0; context < STMODBUS_COUNT_CONTEXT; context++){
-        if ( g_mbusContext[context].open == 0 ){
-            break;
-        }
-    }
-    if ( context == STMODBUS_COUNT_CONTEXT ) return MBUS_ERROR;
-
-    g_mbusContext[context].lock  = lock;
-    g_mbusContext[context].unlock  = unlock;
-
-    return context;
-}
-
-
-
-
+#endif // _STMODBUS_H_
