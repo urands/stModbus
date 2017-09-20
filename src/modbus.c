@@ -55,17 +55,6 @@ void unlock(){
 }
 
 
-void test(){
-
-  //  mbus_t modbus = mbus_open(&lock, &unlock);
-
-
-
-
-  //  mbus_close(modbus);
-
-
-}
 
 
 
@@ -75,7 +64,7 @@ void test(){
  * open new modbus context for new port
  * return: MODBUS_ERROR - if can't open context
 */
-mbus_t mbus_open(void){
+mbus_t mbus_open(Modbus_Conf_t* pconf){
     mbus_t context;
 
     //if ( ( lock == 0 ) || (unlock == 0 )) return MBUS_ERROR;
@@ -87,11 +76,10 @@ mbus_t mbus_open(void){
     }
     if ( context == STMODBUS_COUNT_CONTEXT ) return MBUS_ERROR;
 
-    //init vars
-
-
-    //g_mbusContext[context].lock  = lock;
-    //g_mbusContext[context].unlock  = unlock;
+    //Clear context
+    memset(&g_mbusContext[context],0,sizeof(_stmodbus_context_t));
+    //Copy config to context
+    memcpy((void*)&g_mbusContext[context].conf,(void*)pconf, sizeof(Modbus_Conf_t));
 
     return context;
 }
@@ -99,7 +87,6 @@ mbus_t mbus_open(void){
 
 mbus_status_t mbus_flush(mbus_t context)
 {
-    g_mbusContext[context].devaddr = 1;
     g_mbusContext[context].crc16_lo = 0xFF;
     g_mbusContext[context].crc16_hi = 0xFF;
     g_mbusContext[context].state = MBUS_STATE_IDLE;
@@ -130,8 +117,8 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
     case MBUS_STATE_FUNCTION:
         ctx->header.func = byte;
         switch (byte) {
-        case 0x01:
-        case 0x03:
+        case MBUS_FUNC_COILS:
+        case MBUS_FUNC_HOLD_REGS:
             ctx->state = MBUS_STATE_REGADDR_HI;
             break;
         default:
@@ -180,13 +167,15 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
               return MBUS_ERROR;
         }
 
-        if (  ctx->header.devaddr ==  ctx->devaddr ){
-            ctx->response.devaddr = ctx->devaddr;
+        if (  ctx->header.devaddr ==  ctx->conf.devaddr ){
+            ctx->response.devaddr = ctx->conf.devaddr;
             ctx->response.func = ctx->header.func;
 
             printf("We get func: %x need ansver %x %d\n",  ctx->header.func,  ctx->header.addr, ctx->header.num );
 
            ctx->state = MBUS_STATE_RESPONSE;
+
+           mbus_poll_response(mb_context);
 
            //callback
 
@@ -208,7 +197,71 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
 }
 
 
+inline mbus_status_t mbus_poll_response(_stmodbus_context_t* ctx)
+{
+    stmbCallBackFunc func = 0;
+    for(int i=0;i< STMODBUS_COUNT_FUNC; i++){
+        if ( (ctx->func[i].code == ctx->response.func) ){
+            func = ctx->func[i].func;
+            break;
+        }
+    }
+    if ( func == 0 ){
+        return mbus_response(MBUS_RESPONSE_ILLEGAL_FUNCTION);
+    }
+
+    switch (ctx->response.func) {
+    case MBUS_FUNC_COILS:
+        if ( (ctx->response.num == 0) || (ctx->response.num > 0x07D0 )){
+            return mbus_response(MBUS_RESPONSE_ILLEGAL_DATA_VALUE);
+        }
+        if ( (ctx->response.addr + ctx->response.num) >= ctx->conf.coils  ){
+            return mbus_response(MBUS_RESPONSE_ILLEGAL_DATA_ADDRESS);
+        }
+        break;
+    case MBUS_FUNC_DISCRETE:
+        if ( (ctx->response.num == 0) || (ctx->response.num > 0x07D0 )){
+            return mbus_response(MBUS_RESPONSE_ILLEGAL_DATA_VALUE);
+        }
+        if ( (ctx->response.addr + ctx->response.num) > ctx->conf.discrete ){
+            return mbus_response(MBUS_RESPONSE_ILLEGAL_DATA_ADDRESS);
+        }
+        break;
+    default:
+        break;
+    }
+
+
+
+}
+
+
+mbus_status_t mbus_response(Modbus_ResponseType response){
+
+    if (response == MBUS_RESPONSE_OK ){
+
+
+    }else{
+
+
+    }
+
+
+
+
+}
+
+inline void *mbus_device(mbus_t mb_context)
+{
+    return g_mbusContext[mb_context].conf.device;
+}
+
+
+
+
 #ifdef __cplusplus
 }
 #endif
+
+
 

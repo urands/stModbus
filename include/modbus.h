@@ -72,6 +72,7 @@ typedef enum {
     MBUS_FUNC_DISCRETE = 2,
     MBUS_FUNC_HOLD_REGS = 3,
     MBUS_FUNC_REGS = 4,
+    MBUS_FUNC_EXCEPTION = 0x81,
 } Modbus_ConnectFuncType;
 
 typedef enum {
@@ -90,9 +91,60 @@ typedef enum {
 
 } Modbus_StateType;
 
+typedef enum MBUS_RESPONSE{
 
+
+    MBUS_RESPONSE_OK = 0x00,
+    MBUS_RESPONSE_NONE = 0xFF,
+/* MBUS_RESPONSE_ILLEGAL_FUNCTION
+The function  code  received  in  the  query  is  not  an allowable   action   for   the
+server. This   may   be because  the  function  code  is  only  applicable  to
+newerdevices,  and  was  not  implemented  in  the unit selected. It could also indicate  that the
+serveris  in  the  wrong  state  to  process  a  request  of  this  type,  for  example  because  it  is  unconfigured
+and is being asked to return register values.
+*/
+    MBUS_RESPONSE_ILLEGAL_FUNCTION = 0x01,
+
+/* MBUS_RESPONSE_ILLEGAL_DATA_ADDRESS
+The  data  address  received  in  the  query  is  not  an allowable address for the server.
+More specifically,  the  combination  of  reference  number and  transfer  length  is  invalid. For  a  controller  with 100 registers, the PDU addresses the first register
+as  0,  and  the  last  one  as  99.  If  a  request  is submitted  with  a  starting  register  address  of  96
+and  a  quantity  of  registers  of  4,  then  this  request will  successfully  operate  (address-wise  at  least)
+on   registers   96,   97,   98,   99.   If   a   request   is submitted  with  a  starting  register  address  of  96
+and  a  quantity  of  registers  of  5,  then  this  request will  fail  with  Exception  Code  0x02  “Illegal  Data
+Address”  since  it  attempts  to  operate  on  registers 96,  97, 98,  99  and  100,  and  there  is  no  register
+with address 100.
+*/
+    MBUS_RESPONSE_ILLEGAL_DATA_ADDRESS = 0x02,
+
+/* A  value contained  in the  query  data field  is  not  an allowable value for server. This indicates a fault in the
+structure   of   the   remainder   of   a   complex request,   such   as   that   the   implied   length   is incorrect.
+It specifically does NOT mean that a data item submitted for storage in a register has a value outside the expectation of the application
+program,  since  the  MODBUS  protocol  is  unaware of  the  significance  of  any  particular  val
+ue  of  any particular register.
+*/
+    MBUS_RESPONSE_ILLEGAL_DATA_VALUE = 0x03,
+/*
+An  unrecoverable  error  occurred  while  the  server
+was attempting to perform the requested action.
+*/
+    MBUS_RESPONSE_SERVICE_DEVICE_FAILURE = 0x04,
+}Modbus_ResponseType;
+
+
+/* Simple function for many usage
+ *
+*/
 
 typedef int8_t mbus_t;
+
+typedef void (*stmbFunc)(void);
+
+typedef void (*stmbCallBackFunc)(uint8_t func, uint16_t address, uint16_t size);
+
+typedef int (*stmbSendFunc)(mbus_t func, uint8_t* data, uint16_t size);
+
+
 
 typedef struct __stmodbus_request_header{
     uint8_t devaddr;
@@ -101,25 +153,31 @@ typedef struct __stmodbus_request_header{
     uint16_t num;
 } _stmodbus_request_header;
 
-/* Simple function for many usage
- *
-*/
-typedef void (*stmbFunc)(void);
+typedef struct __stmodbus_bind_func{
+    uint8_t          code;
+    stmbCallBackFunc func;
+} _stmodbus_bind_func;
 
-typedef void (*stmbCallBackFunc)(uint8_t func, uint16_t address, uint16_t size);
+
+
+typedef struct __stmodbus_conf_t{
+    uint8_t         devaddr;
+    uint16_t        coils;
+    uint16_t        discrete;
+    void*           device;
+    stmbSendFunc    send;
+}Modbus_Conf_t;
+
 
 typedef struct __stmodbus_context_t {
+    Modbus_Conf_t               conf;
     uint8_t                     open;
-    stmbCallBackFunc            func[255];
-    stmbFunc                    lock;
-    stmbFunc                    unlock;
     Modbus_StateType            state;
-    uint8_t                     devaddr;
     uint8_t                     crc16_lo;
     uint8_t                     crc16_hi;
+    _stmodbus_bind_func         func[STMODBUS_COUNT_FUNC];
     _stmodbus_request_header    header;
     _stmodbus_request_header    response;
-
 } _stmodbus_context_t;
 
 
@@ -130,7 +188,7 @@ typedef struct __stmodbus_context_t {
  * open new modbus context for new port
  * return: MODBUS_ERROR - if can't open context
 */
-mbus_t mbus_open(void);
+mbus_t mbus_open(Modbus_Conf_t* pconf);
 
 /*
  * function mbus_close()
@@ -138,6 +196,13 @@ mbus_t mbus_open(void);
  * return: none
 */
 void   mbus_close(mbus_t mb_context);
+
+
+/*
+ *
+ *
+*/
+inline void* mbus_device(mbus_t mb_context);
 
 /*
  * function mbus_connect()
@@ -147,7 +212,7 @@ void   mbus_close(mbus_t mb_context);
 mbus_status_t mbus_connect(mbus_t mb_context, stmbCallBackFunc func, Modbus_ConnectFuncType type );
 
 
-mbus_status_t mbus_response(void);
+mbus_status_t mbus_response(Modbus_ResponseType response);
 
 mbus_status_t mbus_flush(mbus_t context);
 
@@ -160,6 +225,8 @@ uint16_t   mbus_hal_crc16(mbus_t mb_context, uint8_t byte);
  * return: none
 */
 mbus_status_t  mbus_poll(mbus_t mb_context, uint8_t byte);
+
+inline mbus_status_t  mbus_poll_response(_stmodbus_context_t* ctx);
 
 extern _stmodbus_context_t g_mbusContext[STMODBUS_COUNT_CONTEXT];
 
