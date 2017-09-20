@@ -103,7 +103,7 @@ mbus_status_t mbus_flush(mbus_t context)
     g_mbusContext[context].crc16_lo = 0xFF;
     g_mbusContext[context].crc16_hi = 0xFF;
     g_mbusContext[context].state = MBUS_STATE_IDLE;
-    return 0;
+    return MBUS_OK;
 }
 
 
@@ -163,7 +163,7 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
         break;
     //We can't processing any more before callback not returned
     case MBUS_STATE_RESPONSE:
-        return 0;
+        return MBUS_ERROR;
     default:
         ctx->state = MBUS_STATE_IDLE;
         break;
@@ -177,12 +177,12 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
         //CRC error
         if ( crc16 != 0 ) {
               ctx->state = MBUS_STATE_IDLE;
-              return 0;
+              return MBUS_ERROR;
         }
 
         if (  ctx->header.devaddr ==  ctx->devaddr ){
             ctx->response.devaddr = ctx->devaddr;
-            ctx->response.func = ctx->func;
+            ctx->response.func = ctx->header.func;
 
             printf("We get func: %x need ansver %x %d\n",  ctx->header.func,  ctx->header.addr, ctx->header.num );
 
@@ -191,6 +191,8 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
            //callback
 
            ctx->state = MBUS_STATE_IDLE;
+					
+					 return MBUS_OK;
         }
 
 
@@ -202,7 +204,7 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
 
 
 
-    return 0;
+    return MBUS_OK;
 }
 
 
