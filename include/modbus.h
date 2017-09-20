@@ -86,6 +86,7 @@ typedef enum {
     MBUS_STATE_CRC_LO,
     MBUS_STATE_CRC_HI,
     MBUS_STATE_FINISH,
+    MBUS_STATE_RESPONSE
 
 } Modbus_StateType;
 
@@ -117,6 +118,7 @@ typedef struct __stmodbus_context_t {
     uint8_t                     crc16_lo;
     uint8_t                     crc16_hi;
     _stmodbus_request_header    header;
+    _stmodbus_request_header    response;
 
 } _stmodbus_context_t;
 

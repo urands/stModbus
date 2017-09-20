@@ -119,69 +119,78 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
 {
     //State machine
     uint16_t crc16;
+    _stmodbus_context_t* ctx =  &g_mbusContext[mb_context];
 
-    switch (g_mbusContext[mb_context].state) {
+    switch (ctx->state) {
     case MBUS_STATE_IDLE:
         mbus_flush(mb_context);
-        g_mbusContext[mb_context].state = MBUS_STATE_FUNCTION;
-        g_mbusContext[mb_context].header.devaddr = byte;
+        ctx->state = MBUS_STATE_FUNCTION;
+        ctx->header.devaddr = byte;
         break;
     case MBUS_STATE_FUNCTION:
-        g_mbusContext[mb_context].header.func = byte;
+        ctx->header.func = byte;
         switch (byte) {
         case 0x01:
         case 0x03:
-            g_mbusContext[mb_context].state = MBUS_STATE_REGADDR_HI;
+            ctx->state = MBUS_STATE_REGADDR_HI;
             break;
         default:
-            g_mbusContext[mb_context].state = MBUS_STATE_IDLE;
+            ctx->state = MBUS_STATE_IDLE;
             break;
         }
         break;
     case MBUS_STATE_REGADDR_HI:
-        g_mbusContext[mb_context].state = MBUS_STATE_REGADDR_LO;
-        g_mbusContext[mb_context].header.addr = byte << 8;
+        ctx->state = MBUS_STATE_REGADDR_LO;
+        ctx->header.addr = byte << 8;
         break;
     case MBUS_STATE_REGADDR_LO:
-        g_mbusContext[mb_context].state = MBUS_STATE_REGNUM_HI;
-        g_mbusContext[mb_context].header.addr|= byte;
+        ctx->state = MBUS_STATE_REGNUM_HI;
+        ctx->header.addr|= byte;
         break;
     case MBUS_STATE_REGNUM_HI:
-        g_mbusContext[mb_context].state = MBUS_STATE_REGNUM_LO;
-        g_mbusContext[mb_context].header.num = byte << 8;
+        ctx->state = MBUS_STATE_REGNUM_LO;
+        ctx->header.num = byte << 8;
         break;
     case MBUS_STATE_REGNUM_LO:
-        g_mbusContext[mb_context].state = MBUS_STATE_CRC_LO;
-        g_mbusContext[mb_context].header.num|= byte;
+        ctx->state = MBUS_STATE_CRC_LO;
+        ctx->header.num|= byte;
         break;
     case MBUS_STATE_CRC_LO:
-        g_mbusContext[mb_context].state = MBUS_STATE_CRC_HI;
+        ctx->state = MBUS_STATE_CRC_HI;
         break;
     case MBUS_STATE_CRC_HI:
-        g_mbusContext[mb_context].state = MBUS_STATE_FINISH;
+        ctx->state = MBUS_STATE_FINISH;
         break;
+    //We can't processing any more before callback not returned
+    case MBUS_STATE_RESPONSE:
+        return 0;
     default:
-        g_mbusContext[mb_context].state = MBUS_STATE_IDLE;
+        ctx->state = MBUS_STATE_IDLE;
         break;
     }
 
     crc16 = mbus_hal_crc16(mb_context,byte);
 
-    printf("\tcrc:0x%X -0x%X state: %x\n",byte,crc16,  g_mbusContext[mb_context].state);
+    printf("\tcrc:0x%X -0x%X state: %x\n",byte,crc16,  ctx->state);
 
-    if (  g_mbusContext[mb_context].state == MBUS_STATE_FINISH ){
+    if (  ctx->state == MBUS_STATE_FINISH ){
         //CRC error
         if ( crc16 != 0 ) {
-              g_mbusContext[mb_context].state = MBUS_STATE_IDLE;
+              ctx->state = MBUS_STATE_IDLE;
               return 0;
         }
 
-        if (  g_mbusContext[mb_context].header.devaddr ==  g_mbusContext[mb_context].devaddr ){
+        if (  ctx->header.devaddr ==  ctx->devaddr ){
+            ctx->response.devaddr = ctx->devaddr;
+            ctx->response.func = ctx->func;
 
+            printf("We get func: %x need ansver %x %d\n",  ctx->header.func,  ctx->header.addr, ctx->header.num );
 
-            printf("We get func: %x need ansver %x %d\n",  g_mbusContext[mb_context].header.func,  g_mbusContext[mb_context].header.addr, g_mbusContext[mb_context].header.num );
+           ctx->state = MBUS_STATE_RESPONSE;
 
-            g_mbusContext[mb_context].state = MBUS_STATE_IDLE;
+           //callback
+
+           ctx->state = MBUS_STATE_IDLE;
         }
 
 
