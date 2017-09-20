@@ -29,7 +29,17 @@
  * @package     stModbus
  */
 
+#ifdef __cplusplus
+extern          "C"
+{
+#endif
+
 #include "modbus.h"
+
+#include <stdio.h>
+
+
+
 
 
 //Global variable for modbus context
@@ -47,12 +57,12 @@ void unlock(){
 
 void test(){
 
-    mbus_t modbus = mbus_open(&lock, &unlock);
+  //  mbus_t modbus = mbus_open(&lock, &unlock);
 
 
 
 
-    mbus_close(modbus);
+  //  mbus_close(modbus);
 
 
 }
@@ -65,10 +75,10 @@ void test(){
  * open new modbus context for new port
  * return: MODBUS_ERROR - if can't open context
 */
-mbus_t mbus_open(stmbFunc lock, stmbFunc unlock){
+mbus_t mbus_open(void){
     mbus_t context;
 
-    if ( ( lock == 0 ) || (unlock == 0 )) return MBUS_ERROR;
+    //if ( ( lock == 0 ) || (unlock == 0 )) return MBUS_ERROR;
 
     for( context = 0; context < STMODBUS_COUNT_CONTEXT; context++){
         if ( g_mbusContext[context].open == 0 ){
@@ -77,12 +87,117 @@ mbus_t mbus_open(stmbFunc lock, stmbFunc unlock){
     }
     if ( context == STMODBUS_COUNT_CONTEXT ) return MBUS_ERROR;
 
-    g_mbusContext[context].lock  = lock;
-    g_mbusContext[context].unlock  = unlock;
+    //init vars
+
+
+    //g_mbusContext[context].lock  = lock;
+    //g_mbusContext[context].unlock  = unlock;
 
     return context;
 }
 
 
+mbus_status_t mbus_flush(mbus_t context)
+{
+    g_mbusContext[context].devaddr = 1;
+    g_mbusContext[context].crc16_lo = 0xFF;
+    g_mbusContext[context].crc16_hi = 0xFF;
+    g_mbusContext[context].state = MBUS_STATE_IDLE;
+    return 0;
+}
 
+
+
+
+
+/*
+ * function mbus_close()
+ * close modbus context
+ * return: none
+*/
+mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
+{
+    //State machine
+    uint16_t crc16;
+
+    switch (g_mbusContext[mb_context].state) {
+    case MBUS_STATE_IDLE:
+        mbus_flush(mb_context);
+        g_mbusContext[mb_context].state = MBUS_STATE_FUNCTION;
+        g_mbusContext[mb_context].header.devaddr = byte;
+        break;
+    case MBUS_STATE_FUNCTION:
+        g_mbusContext[mb_context].header.func = byte;
+        switch (byte) {
+        case 0x01:
+        case 0x03:
+            g_mbusContext[mb_context].state = MBUS_STATE_REGADDR_HI;
+            break;
+        default:
+            g_mbusContext[mb_context].state = MBUS_STATE_IDLE;
+            break;
+        }
+        break;
+    case MBUS_STATE_REGADDR_HI:
+        g_mbusContext[mb_context].state = MBUS_STATE_REGADDR_LO;
+        g_mbusContext[mb_context].header.addr = byte << 8;
+        break;
+    case MBUS_STATE_REGADDR_LO:
+        g_mbusContext[mb_context].state = MBUS_STATE_REGNUM_HI;
+        g_mbusContext[mb_context].header.addr|= byte;
+        break;
+    case MBUS_STATE_REGNUM_HI:
+        g_mbusContext[mb_context].state = MBUS_STATE_REGNUM_LO;
+        g_mbusContext[mb_context].header.num = byte << 8;
+        break;
+    case MBUS_STATE_REGNUM_LO:
+        g_mbusContext[mb_context].state = MBUS_STATE_CRC_LO;
+        g_mbusContext[mb_context].header.num|= byte;
+        break;
+    case MBUS_STATE_CRC_LO:
+        g_mbusContext[mb_context].state = MBUS_STATE_CRC_HI;
+        break;
+    case MBUS_STATE_CRC_HI:
+        g_mbusContext[mb_context].state = MBUS_STATE_FINISH;
+        break;
+    default:
+        g_mbusContext[mb_context].state = MBUS_STATE_IDLE;
+        break;
+    }
+
+    crc16 = mbus_hal_crc16(mb_context,byte);
+
+    printf("\tcrc:0x%X -0x%X state: %x\n",byte,crc16,  g_mbusContext[mb_context].state);
+
+    if (  g_mbusContext[mb_context].state == MBUS_STATE_FINISH ){
+        //CRC error
+        if ( crc16 != 0 ) {
+              g_mbusContext[mb_context].state = MBUS_STATE_IDLE;
+              return 0;
+        }
+
+        if (  g_mbusContext[mb_context].header.devaddr ==  g_mbusContext[mb_context].devaddr ){
+
+
+            printf("We get func: %x need ansver %x %d\n",  g_mbusContext[mb_context].header.func,  g_mbusContext[mb_context].header.addr, g_mbusContext[mb_context].header.num );
+
+            g_mbusContext[mb_context].state = MBUS_STATE_IDLE;
+        }
+
+
+
+    }
+
+
+
+
+
+
+    return 0;
+}
+
+
+#ifdef __cplusplus
+}
+#endif
 

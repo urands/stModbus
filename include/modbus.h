@@ -34,7 +34,7 @@
 
 #include "modbus_conf.h"
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern          "C"
 {
 #endif
@@ -74,8 +74,31 @@ typedef enum {
     MBUS_FUNC_REGS = 4,
 } Modbus_ConnectFuncType;
 
+typedef enum {
+    MBUS_STATE_IDLE = 0,
+    MBUS_STATE_DEVADD,
+    MBUS_STATE_FUNCTION,
+    MBUS_STATE_REGADDR_LO,
+    MBUS_STATE_REGADDR_HI,
+    MBUS_STATE_REGNUM_LO,
+    MBUS_STATE_REGNUM_HI,
+    MBUS_STATE_DATA,
+    MBUS_STATE_CRC_LO,
+    MBUS_STATE_CRC_HI,
+    MBUS_STATE_FINISH,
+
+} Modbus_StateType;
+
+
 
 typedef int8_t mbus_t;
+
+typedef struct __stmodbus_request_header{
+    uint8_t devaddr;
+    uint8_t func;
+    uint16_t addr;
+    uint16_t num;
+} _stmodbus_request_header;
 
 /* Simple function for many usage
  *
@@ -85,10 +108,15 @@ typedef void (*stmbFunc)(void);
 typedef void (*stmbCallBackFunc)(uint8_t func, uint16_t address, uint16_t size);
 
 typedef struct __stmodbus_context_t {
-    uint8_t     open;
-    stmbCallBackFunc func[255];
-    stmbFunc    lock;
-    stmbFunc    unlock;
+    uint8_t                     open;
+    stmbCallBackFunc            func[255];
+    stmbFunc                    lock;
+    stmbFunc                    unlock;
+    Modbus_StateType            state;
+    uint8_t                     devaddr;
+    uint8_t                     crc16_lo;
+    uint8_t                     crc16_hi;
+    _stmodbus_request_header    header;
 
 } _stmodbus_context_t;
 
@@ -100,7 +128,7 @@ typedef struct __stmodbus_context_t {
  * open new modbus context for new port
  * return: MODBUS_ERROR - if can't open context
 */
-mbus_t mbus_open(stmbFunc lock, stmbFunc unlock);
+mbus_t mbus_open(void);
 
 /*
  * function mbus_close()
@@ -119,8 +147,21 @@ mbus_status_t mbus_connect(mbus_t mb_context, stmbCallBackFunc func, Modbus_Conn
 
 mbus_status_t mbus_response(void);
 
+mbus_status_t mbus_flush(mbus_t context);
 
-#ifdef _cplusplus
+
+uint16_t   mbus_hal_crc16(mbus_t mb_context, uint8_t byte);
+
+/*
+ * function mbus_close()
+ * close modbus context
+ * return: none
+*/
+mbus_status_t  mbus_poll(mbus_t mb_context, uint8_t byte);
+
+extern _stmodbus_context_t g_mbusContext[STMODBUS_COUNT_CONTEXT];
+
+#ifdef __cplusplus
 }
 #endif
 

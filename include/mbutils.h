@@ -32,14 +32,15 @@
 #ifndef _STMODBUS_H_
 #define _STMODBUS_H_
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern          "C"
 {
 #endif
 
 uint16_t   usModbusCRC16( uint8_t* pucFrame, uint16_t usLen );
 
-#ifdef _cplusplus
+
+#ifdef __cplusplus
 }
 #endif
 
