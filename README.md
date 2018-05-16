@@ -54,7 +54,7 @@ void HAL_UART_DMA_IdleLineDetect(UART_HandleTypeDef *huart){
 		clear buffer....
 	}
 }
-
+```
 
 3. After that just configure modbus library
 
