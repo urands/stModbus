@@ -99,11 +99,8 @@ usMBCRC16( UCHAR * pucFrame, USHORT usLen )
 
 */
 
-uint16_t   mbus_hal_crc16(mbus_t mb_context, uint8_t byte){
-
-    int index = g_mbusContext[mb_context].crc16_lo ^ byte;
-    g_mbusContext[mb_context].crc16_lo = g_mbusContext[mb_context].crc16_hi ^ aucCRCHi[index];
-    g_mbusContext[mb_context].crc16_hi = aucCRCLo[index];
-    return (g_mbusContext[mb_context].crc16_hi << 8) | g_mbusContext[mb_context].crc16_lo;
-
+uint16_t   mbus_crc16(const uint16_t crc16, const uint8_t byte){
+    const int index = (crc16&0xFF) ^ byte;
+    return (aucCRCLo[index] << 8) | ((crc16 >> 8) ^ aucCRCHi[index]);
 }
+

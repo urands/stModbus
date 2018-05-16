@@ -50,6 +50,24 @@ extern          "C"
 // <i> Don't set a lot of count for memory saving
 #define STMODBUS_COUNT_CONTEXT 1
 
+// <o> Count modbus func
+// <i> Don't set a lot of count for memory saving
+#define STMODBUS_COUNT_FUNC 0
+
+// <o> Count modbus coils (discrete output)
+// <i> Don't set a lot of count for memory saving
+#define STMODBUS_COUNT_COILS 10
+
+// <o> Count modbus discrete (discrete inputs)
+// <i> Don't set a lot of count for memory saving
+#define STMODBUS_COUNT_DISCRETE 8
+
+// <o> Response buffer size
+// <i> Don't set a lot of count for memory saving
+#define STMODBUS_MAX_RESPONSE_SIZE 255
+
+
+
 
 
 
