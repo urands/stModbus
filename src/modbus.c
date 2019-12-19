@@ -144,7 +144,7 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context)
     if ( la > 0 ){
         la+= ctx->header.addr;
      }
-     if ( la > 30000 && la < 50001){
+     if ( la < 50001 ){
        ctx->conf.sendbuf[0] = ctx->header.devaddr;
        ctx->conf.sendbuf[1] = ctx->header.func;
        ctx->conf.sendbuf[2] = ctx->header.num*2;
@@ -156,32 +156,38 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context)
             }
            return mbus_send_data(mb_context,3+ctx->conf.sendbuf[2]);
        }else if (ctx->conf.write ){
-            ctx->conf.sendbuf[2] = 0;
-            if  ( ctx->header.func == MBUS_FUNC_WRITE_REG ){
-                ctx->conf.sendbuf[2] = ctx->header.addr >> 8;
-                ctx->conf.sendbuf[3] = ctx->header.addr& 0xFF;
-                uint16_t* value = (uint16_t*) ctx->conf.recvbuf;
-                ctx->conf.sendbuf[4] = ctx->conf.recvbuf[1];
-                ctx->conf.sendbuf[5] = ctx->conf.recvbuf[0];
-                ctx->conf.write(la,*value);
-                return mbus_send_data(mb_context, 6 );
-            }
-					 if  ( ctx->header.func == MBUS_FUNC_WRITE_REGS ){
-						   uint16_t* value = (uint16_t*) ctx->conf.recvbuf;
-							 for(int i=0;i<ctx->header.num;i++){
-									ctx->conf.write(la+i,*value);
-							 }
-						   ctx->conf.sendbuf[2] = ctx->header.addr >> 8;
-               ctx->conf.sendbuf[3] = ctx->header.addr& 0xFF;
-							 ctx->conf.sendbuf[4] = ctx->header.num >> 8;
-               ctx->conf.sendbuf[5] = ctx->header.num & 0xFF;						 
-							 return mbus_send_data(mb_context, 6 );
-					 }
+         uint16_t* value;
+
+         ctx->conf.sendbuf[2] = 0;
+         switch( ctx->header.func )
+         {
+           case MBUS_FUNC_WRITE_REG:
+           case MBUS_FUNC_WRITE_COIL:
+             // in both these cases, we should return the same packet that we received.
+             // in both cases, the packes have 6 bytes of data + 2 CRC bytes = 8 bytes
+             value = (uint16_t*) ctx->conf.recvbuf;
+             ctx->conf.write(la,*value);
+             ctx->conf.sendbuf[2] = ctx->header.addr >> 8;
+             ctx->conf.sendbuf[3] = ctx->header.addr& 0xFF;
+             ctx->conf.sendbuf[4] = ctx->conf.recvbuf[1];
+             ctx->conf.sendbuf[5] = ctx->conf.recvbuf[0];
+             return mbus_send_data(mb_context, 6 );
+
+           case MBUS_FUNC_WRITE_REGS:
+             value = (uint16_t*) ctx->conf.recvbuf;
+             for(int i=0;i<ctx->header.num;i++){
+               ctx->conf.write(la+i,*value);
+             }
+             ctx->conf.sendbuf[2] = ctx->header.addr >> 8;
+             ctx->conf.sendbuf[3] = ctx->header.addr& 0xFF;
+             ctx->conf.sendbuf[4] = ctx->header.num >> 8;
+             ctx->conf.sendbuf[5] = ctx->header.num & 0xFF;
+             return mbus_send_data(mb_context, 6 );
+         } // end of switch
 						
        }
-       // return mbus_send_data(mb_context,3+ctx->conf.sendbuf[2]);
-      }
-    return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
+     }
+     return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
 }
 
 extern uint32_t timer;
@@ -234,6 +240,11 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte)
             ctx->state = MBUS_STATE_REGADDR_HI;
             ctx->header.rnum = 0;
             ctx->header.num  = 0;
+            break;
+        case MBUS_FUNC_WRITE_COIL:
+            ctx->header.rnum = 1;
+            ctx->header.num = 1;
+            ctx->state = MBUS_STATE_REGADDR_HI;
             break;
         default:
             //ctx->state = MBUS_STATE_IDLE;
