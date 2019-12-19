@@ -148,11 +148,11 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context)
        ctx->conf.sendbuf[0] = ctx->header.devaddr;
        ctx->conf.sendbuf[1] = ctx->header.func;
        ctx->conf.sendbuf[2] = ctx->header.num*2;
-       uint16_t* data = (uint16_t*)&ctx->conf.sendbuf[3];
        if ( read && ctx->conf.read ){
            for(int i=0;i<ctx->header.num;i++){
                d = ctx->conf.read(la+i);
-               data[i] = (d << 8) | (d >> 8);
+	       ctx->conf.sendbuf[ 3 + i * 2 ] = d >> 8;
+	       ctx->conf.sendbuf[ 3 + i * 2 + 1 ] = d & 0xff;
             }
            return mbus_send_data(mb_context,3+ctx->conf.sendbuf[2]);
        }else if (ctx->conf.write ){
