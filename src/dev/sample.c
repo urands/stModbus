@@ -30,7 +30,7 @@
  * @package     stModbus
  */
 
-#include "dev/somedevice.h"
+#include "dev/sample.h"
 
 #include <stdio.h>
 
@@ -126,7 +126,7 @@ mbus_status_t mbus_somedevice_read_4xxxx(mbus_t mb_context)
 
 
     if (ctx->header.addr + ctx->header.num < 13 ){
-        memcpy(buf, isma_reg_4xxxx +  ctx->header.addr, ctx->header.num*2 );
+        //memcpy(buf, isma_reg_4xxxx +  ctx->header.addr, ctx->header.num*2 );
         size= ctx->header.num;
     }else{
         //Hack
@@ -157,7 +157,8 @@ uint16_t mbus_somedev_read(uint32_t la)
 {
 	 short val;
 		if ( la >= 40000 && la <= 40013 ){
-			return isma_reg_4xxxx[la-40000];
+			//return isma_reg_4xxxx[la-40000];
+			return 0;
 		}
 			
 		//Digital outputs
@@ -228,7 +229,7 @@ uint16_t mbus_somedev_write(uint32_t la, uint16_t value)
 {
     //printf("We write: %d %d\n",la, value);
 		if ( la >= 40000 && la <= 40013 ){
-			isma_reg_4xxxx[la-40000] = value;
+			//isma_reg_4xxxx[la-40000] = value;
 		}
 		if (la == 40018 ){
 			 output = (value >> 8) | (value << 8);
