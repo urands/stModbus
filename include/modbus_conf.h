@@ -29,14 +29,12 @@
  * @package     stModbus
  */
 
-#ifndef _STMODBUS_H_
-#define _STMODBUS_H_
+#ifndef _STMODBUS_CONF_H_
+#define _STMODBUS_CONF_H_
 
 #ifdef _cplusplus
-extern          "C"
-{
+extern "C" {
 #endif
-
 
 //-------- <<< Use Configuration Wizard in Context Menu >>> --------------------
 
@@ -66,29 +64,22 @@ extern          "C"
 // <i> Don't set a lot of count for memory saving
 #define STMODBUS_MAX_RESPONSE_SIZE 255
 
-
-
-
-
-
 //   <o> Debug information messages level <0=>Off <1=>Low <2=>Medium <3=>High
 //	 <i> Debug information messages sending or stop  on warnings
-#define STACKOS_DEBUG							3
-#if ( STACKOS_DEBUG > 3 )
-    #error "Invalid debug information messages level!"
+#define STACKOS_DEBUG 3
+#if (STACKOS_DEBUG > 3)
+#error "Invalid debug information messages level!"
 #endif
 
 //	<h> Default Stack OS module parameters
-//<o> Debug information messages level <4=>idle (lowest) <5=>low <6=>below normal <0=>normal (default) <1=>above normal <2=>high <3=>realtime (highest)
+//<o> Debug information messages level <4=>idle (lowest) <5=>low <6=>below
+//normal <0=>normal (default) <1=>above normal <2=>high <3=>realtime (highest)
 //<i> Thread priority
 #define STACKOS_MODULE_THREAD_LEVEL 0
 //<o> Thread stack size
 //<i> Thread
 #define STACKOS_MODULE_THREAD_STACK 0
 //	</h>
-
-
-
 
 //	<e> Enable test unit (Benchmark)
 #define STOS_TESTUNIT 1
@@ -98,12 +89,10 @@ extern          "C"
 
 //-------- <<< end of configuration section >>>    --------------------
 
-
 #include "mbutils.h"
-
 
 #ifdef _cplusplus
 }
 #endif
 
-#endif // _STMODBUS_H_
+#endif // _STMODBUS_CONF_H_

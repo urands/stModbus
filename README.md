@@ -1,5 +1,5 @@
 # stModbus (IN PROGRESS)
-Modbus RTU implementation for Cortex-M (STM32 series: STM32F103, STM32F3xx)
+Modbus RTU implementation for Cortex-M (STM32 series: F1/F3/F4)
 
 This is free tiny library for Desktop and MCU application.
 The main purpose of this library usage on STM32 controllers together with CMSIS library
@@ -19,9 +19,9 @@ It's library easy for usage:
 	/* It's modbus request on read register by logical address (la) */
 	uint16_t user_mbus_somedev_read(uint32_t la){
 		switch(la){
-			case 40000:
-				return my_buffer_reg_4xxxx[0];
 			case 40001:
+				return my_buffer_reg_4xxxx[0];
+			case 40002:
 				return some_register_from_you_device;
 			...
 		}
@@ -30,8 +30,8 @@ It's library easy for usage:
 	//Function for write to some register by logic address
 	uint16_t user_mbus_somedev_write(uint32_t la, uint16_t value)
 	{
-		if ( la >= 40000 && la <= 40013 ){
-			my_buffer_reg_4xxxx[la-40000] = value;
+		if ( la > 40000 && la <= 40013 ){
+			my_buffer_reg_4xxxx[la-40001] = value;
 		}
 		if (la == 40018 ){
 			 output = (value >> 8) | (value << 8);

@@ -1,6 +1,6 @@
 /**
  * stModbus Libary: A tiny Modbus implementation for Modbus ASCII/RTU
- * Copyright (c) 2017+ [Iurii Bell] ds@inbox.ru (http://www.bel-tech.ru/)
+ * Copyright (c) 2021+ [Iurii Bell] ds@inbox.ru (http://www.bel-tech.ru/)
  * All rights reserved.
  *
  * [MIT License](http://www.opensource.org/licenses/mit-license.php)
@@ -23,25 +23,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @copyright   Copyright (C) 2017+
+ * @copyright   Copyright (C) 2021+
  * @author      Iurii Bell (ds@inbox.ru)
  * @license     MIT
  * @package     stModbus
  */
 
-#ifndef _STMODBUS_UTILS_H_
-#define _STMODBUS_UTILS_H_
-
-#include <stdint.h>
+#ifndef _STMODBUS_MBDEVICE_H_
+#define _STMODBUS_MBDEVICE_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-uint16_t usModbusCRC16(uint8_t *pucFrame, uint16_t usLen);
+void modbus_usart_it();
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // _STMODBUS_UTILS_H_
+#endif // _STMODBUS_MBDEVICE_H_

@@ -1,1 +1,2 @@
-13.09.2017 Initialize stModbus project
+- 13.09.2017 Initialize stModbus project
+- 11.02.2021 Add easy start with library
