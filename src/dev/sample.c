@@ -32,6 +32,10 @@
 
 #include "dev/sample.h"
 
+#include "spi_ion_board.h"
+
+#include "gpio_ion_board.h"
+
 #include <stdio.h>
 
 #include <string.h>
@@ -55,12 +59,13 @@ uint16_t output;
 uint16_t input;
 
 
+extern uint32_t ddd2;
+
 
 //Function for initialization modbus on you device
 mbus_t mbus_somedevice_open(Modbus_Conf_t *pconf)
 {
-
-    mbus_t mb;
+	 mbus_t mb;
 
 	//Define read callback function
     pconf->read = mbus_somedev_read;
@@ -144,32 +149,65 @@ mbus_status_t mbus_somedevice_read_4xxxx(mbus_t mb_context)
     return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_ADDRESS);
 }
 
-extern uint16_t adc[3];
+uint16_t adc[3];
 
-extern uint16_t sdadc1[2];
+uint16_t sdadc1[2];
 
-extern uint16_t sdadc2[3];
 
-extern uint16_t sdadc3[8];
+uint16_t dac[16];
+
+uint16_t sdadc2[3];
+
+uint16_t sdadc3[8];
+
+extern float vout1;
+extern float v2;
+extern float r1;
 
 /* It's modbus request on read register by logical address (la) */
 uint16_t mbus_somedev_read(uint32_t la)
 {
 	 short val;
-		if ( la >= 40000 && la <= 40013 ){
-			//return isma_reg_4xxxx[la-40000];
-			return 0;
+		if ( la > 40000 && la <= 40016 ){
+			return dac[la-40001];
 		}
 			
 		//Digital outputs
 		switch (la){
-			case 40016: //State
-				return input;			
-			case 40018: //State
-				return output;
+			case 40017: //State
+				return ddd2;			
 			case 40143: //Default state
 				return 0;
 		}
+		
+		uint32_t*  ff = (uint32_t*) &vout1;
+		
+		if (la == 40018 ){
+			return (*ff)&0xFFFF;
+		}
+		if (la == 40019 ){
+			return ((*ff)>>16)&0xFFFF;
+		}
+
+		
+		ff = (uint32_t*) &v2;
+		
+		if (la == 40020 ){
+			return (*ff)&0xFFFF;
+		}
+		if (la == 40021 ){
+			return ((*ff)>>16)&0xFFFF;
+		}
+		
+		ff = (uint32_t*) &r1;
+		
+		if (la == 40022 ){
+			return (*ff)&0xFFFF;
+		}
+		if (la == 40023 ){
+			return ((*ff)>>16)&0xFFFF;
+		}		
+
 		
 		if (la > 40022 && la< 40047){
 			return 0;
@@ -191,12 +229,12 @@ uint16_t mbus_somedev_read(uint32_t la)
 		if (la == 40088){
 			val = (short) sdadc1[1];
 			if (val < 0 ) val = 0;
-			return  (uint16_t)((float)val*0.07*2);
+			//return  (uint16_t)((float)val*0.07*2);
 		}			
 		if (la == 40089){
 			val = (short) sdadc1[0];
 			if (val < 0 ) val = 0;
-			return  (uint16_t)((float)val*0.05);
+			//return  (uint16_t)((float)val*0.05);
 		}			
 		if (la == 40090){
 			return 4;
@@ -228,12 +266,20 @@ uint16_t mbus_somedev_read(uint32_t la)
 uint16_t mbus_somedev_write(uint32_t la, uint16_t value)
 {
     //printf("We write: %d %d\n",la, value);
-		if ( la >= 40000 && la <= 40013 ){
-			//isma_reg_4xxxx[la-40000] = value;
+		if ( la > 40000 && la <= 40016 ){
+			uint8_t ch  = la - 40001;
+			dac[ch] = value;
+			spi_dac_set(dac[ch]&0xFF,ch);
+		}
+		if (la == 40017 ){
+			ion_adc_writereg(0x1, 1, value&0xFF);
 		}
 		if (la == 40018 ){
-			 output = (value >> 8) | (value << 8);
+			ion_mux_select(value&0xF);
+			ion_mux_output(value&0x10);
 		}
+		
+
 		
     return value;
 }

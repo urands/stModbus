@@ -40,6 +40,7 @@ extern "C" {
 
 // Global variable for modbus context
 _stmodbus_context_t g_mbusContext[STMODBUS_COUNT_CONTEXT];
+Modbus_ResponseType    g_userError = MBUS_RESPONSE_OK;
 
 void lock() {}
 
@@ -82,6 +83,11 @@ mbus_status_t mbus_response(mbus_t mb_context, Modbus_ResponseType response) {
   } else {
   }
   return MBUS_ERROR;
+}
+
+uint16_t mbus_error(Modbus_ResponseType error) {
+    g_userError = error;
+    return 0;
 }
 
 inline mbus_status_t mbus_poll_response(mbus_t mb_context) {
@@ -128,7 +134,7 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context) {
     return func(mb_context);
   }
 
-  la = mbus_proto_address(ctx->header.func, &read);
+  la = mbus_proto_address((Modbus_ConnectFuncType)ctx->header.func, (int*)&read);
   if (la > 0) {
     la += ctx->header.addr;
   }
@@ -137,12 +143,18 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context) {
     ctx->conf.sendbuf[1] = ctx->header.func;
     ctx->conf.sendbuf[2] = ctx->header.num * 2;
     if (read && ctx->conf.read) {
+      g_userError = MBUS_RESPONSE_OK;
       for (int i = 0; i < ctx->header.num; i++) {
+        
         d = ctx->conf.read(la + i);
         ctx->conf.sendbuf[3 + (i << 1)] = d >> 8;
         ctx->conf.sendbuf[3 + (i << 1) + 1] = d & 0xFF;
       }
-      return mbus_send_data(mb_context, 3 + ctx->conf.sendbuf[2]);
+      if (g_userError == MBUS_RESPONSE_OK) {
+          return mbus_send_data(mb_context, 3 + ctx->conf.sendbuf[2]);
+      }else {
+          return mbus_response(mb_context, g_userError);
+      }
     } else if (ctx->conf.write) {
       uint16_t *value;
       ctx->conf.sendbuf[2] = 0;
@@ -175,10 +187,6 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context) {
   }
   return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
 }
-
-extern uint32_t timer;
-
-uint32_t mbus_tickcount() { return timer; }
 
 //#include <windows.h>
 /*
@@ -375,7 +383,7 @@ mbus_status_t mbus_connect(const mbus_t mb_context, stmbCallBackFunc func,
   return MBUS_ERROR;
 }
 
-int mbus_proto_address(const Modbus_ConnectFuncType func, int *r) {
+int mbus_proto_address( Modbus_ConnectFuncType func, int *r) {
   int adr = 0;
   *r = 1;
   switch (func) {

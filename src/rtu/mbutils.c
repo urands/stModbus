@@ -101,3 +101,5 @@ uint16_t mbus_crc16(const uint16_t crc16, const uint8_t byte) {
   const int index = (crc16 & 0xFF) ^ byte;
   return (aucCRCLo[index] << 8) | ((crc16 >> 8) ^ aucCRCHi[index]);
 }
+
+uint32_t mbus_tickcount() { return 0; }

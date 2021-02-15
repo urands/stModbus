@@ -261,7 +261,11 @@ uint16_t mbus_hal_crc16(mbus_t mb_context, uint8_t byte);
 
 uint16_t mbus_crc16(const uint16_t crc16, const uint8_t byte);
 
-int mbus_proto_address(const Modbus_ConnectFuncType func, int *r);
+uint16_t mbus_error(Modbus_ResponseType error);
+
+uint32_t mbus_tickcount();
+
+int mbus_proto_address( Modbus_ConnectFuncType func, int *r);
 
 /*
  * function mbus_close()
