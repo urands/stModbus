@@ -1,4 +1,4 @@
-# stModbus (beta)
+# stModbus (beta 0.1b10)
 Modbus RTU implementation for Cortex-M (STM32 series: F1/F3/F4)
 
 This is free tiny library for Desktop and MCU application.
@@ -91,34 +91,36 @@ int mbus_send(const mbus_t context,const uint8_t* data, const uint16_t size){
 5. After all this just configure modbus library
 
 ```c
-	// Modbus context (we can use many context for example if we use 2 or more RS485 ports or ethernet and serial)
+	// Modbus context (we can use many context for example 
+	// if we use 2 or more RS485 ports or ethernet and serial)
 	mbus_t modbus; 
 	Modbus_Conf_t mb_config;
 
-   /* Device slave address */
-    mb_config.devaddr = 0x01;
+	/* Device slave address */
+	mb_config.devaddr = 0x01;
 
-    /* Just ptr on any external object, you can get it by context */
-    mb_config.device = (void*) 0;
+	/* Just ptr on any external object, you can get it by context */
+	mb_config.device = (void*) 0;
 
-    /* This that function for sending some data (use sendbuf for buf) */
-    mb_config.send = &mbus_send;
+	/* This that function for sending some data (use sendbuf for buf) */
+	mb_config.send = &mbus_send;
 
-   	//User Read callback function ( read by logical address) 
-    pconf->read = user_mbus_protocol_read;
+	//User Read callback function ( read by logical address) 
+	pconf->read = user_mbus_protocol_read;
 	
 	//Write callback function
-    pconf->write = user_mbus_protocol_write;
+	pconf->write = user_mbus_protocol_write;
 	
 	//Open modbus contex
 	modbus = mbus_open(pconf);
 ```
- You 
+ 
 
 6. Customize config file
+
 	Customize the modbus_conf.h file to suit your requirements (internal buffer size, number of context). The keil  configuration wizard can be used for configuration.
 
-## 
+| Full documentation is planned for the release of the first version of alpha
 
 
 
