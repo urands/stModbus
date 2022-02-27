@@ -173,15 +173,15 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context) {
         return mbus_send_data(mb_context, 6);
 
       case MBUS_FUNC_WRITE_REGS:
-        value = (uint16_t *)ctx->conf.recvbuf;
-        for (int i = 0; i < ctx->header.num; i++) {
-          ctx->conf.write(la + i, *value);
-        }
-        ctx->conf.sendbuf[2] = ctx->header.addr >> 8;
-        ctx->conf.sendbuf[3] = ctx->header.addr & 0xFF;
-        ctx->conf.sendbuf[4] = ctx->header.num >> 8;
-        ctx->conf.sendbuf[5] = ctx->header.num & 0xFF;
-        return mbus_send_data(mb_context, 6);
+    	  for (int i = 0; i < ctx->header.num; i++) {
+    		  uint16_t regvalue = ((uint16_t)ctx->conf.recvbuf[i*2]<<8)|((uint16_t)ctx->conf.recvbuf[i*2+1]);
+    		  ctx->conf.write(la + i, regvalue);
+    	  }
+    	  ctx->conf.sendbuf[2] = ctx->header.addr >> 8;
+    	  ctx->conf.sendbuf[3] = ctx->header.addr & 0xFF;
+    	  ctx->conf.sendbuf[4] = ctx->header.num >> 8;
+    	  ctx->conf.sendbuf[5] = ctx->header.num & 0xFF;
+    	  return mbus_send_data(mb_context, 6);
       } // end of switch
     }
   }
