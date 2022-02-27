@@ -101,7 +101,18 @@ int mbus_send(const mbus_t context,const uint8_t* data, const uint16_t size){
 
 	/* Just ptr on any external object, you can get it by context */
 	mb_config.device = (void*) 0;
+	
+	/*set up buffers for received and sent modbus data, declare MYMODBUSSENDBUFFER globally with adequate size*/
+	uint8_t * pmodbusSendBuffer;
+	pmodbusSendBuffer=&MYMODBUSSENDBUFFER;
+	mb_config.sendbuf = pmodbusSendBuffer;
+	mb_config.sendbuf_sz = sizeof(MYMODBUSSENDBUFFER);
 
+	uint8_t * pmodbusRecvBuffer;
+	pmodbusRecvBuffer=&MYMODBUSRECEIVEBUFFER;
+	mb_config.recvbuf = pmodbusRecvBuffer;
+	mb_config.recvbuf_sz = sizeof(MYMODBUSRECEIVEBUFFER);
+	
 	/* This that function for sending some data (use sendbuf for buf) */
 	mb_config.send = &mbus_send;
 
