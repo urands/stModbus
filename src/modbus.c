@@ -175,7 +175,7 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context) {
       case MBUS_FUNC_WRITE_REGS:
         value = (uint16_t *)ctx->conf.recvbuf;
         for (int i = 0; i < ctx->header.num; i++) {
-          ctx->conf.write(la + i, *value);
+          ctx->conf.write(la + i, *value++);
         }
         ctx->conf.sendbuf[2] = ctx->header.addr >> 8;
         ctx->conf.sendbuf[3] = ctx->header.addr & 0xFF;
