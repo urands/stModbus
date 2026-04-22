@@ -56,6 +56,8 @@ uint16_t mbus_somedev_write(uint32_t la, uint16_t value);
 
 mbus_t mbus_somedev_open(Modbus_Conf_t* pconf);
 
+mbus_t mbus_somedevice_open(Modbus_Conf_t *pconf);
+
 
 
 #ifdef __cplusplus

@@ -29,19 +29,19 @@
  * @package     stModbus
  */
 
-#ifndef _STMODBUS_H_
-#define _STMODBUS_H_
+#ifndef _STMODBUS_UTILS_H_
+#define _STMODBUS_UTILS_H_
+
+#include <stdint.h>
 
 #ifdef __cplusplus
-extern          "C"
-{
+extern "C" {
 #endif
 
-uint16_t   usModbusCRC16( uint8_t* pucFrame, uint16_t usLen );
-
+uint16_t usModbusCRC16(uint8_t *pucFrame, uint16_t usLen);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // _STMODBUS_H_
+#endif // _STMODBUS_UTILS_H_
