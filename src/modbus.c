@@ -94,27 +94,23 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context) {
   stmbCallBackFunc func = 0;
   _stmodbus_context_t *ctx = &g_mbusContext[mb_context];
   int read = 1, la;
-  uint16_t d;
-
-  if (ctx->header.func == 0x04) {
-    la = 10;
-  }
 
 #if STMODBUS_COUNT_FUNC > 0
   for (int i = 0; i < STMODBUS_COUNT_FUNC; i++) {
-    if ((ctx->func[i].code == ctx->response.func)) {
+    if ((ctx->func[i].code == ctx->header.func)) {
       func = ctx->func[i].func;
       break;
     }
   }
 #endif
+
+  /* Per-function quantity and address validation (spec-compliant caps). */
   switch (ctx->header.func) {
-  case MBUS_FUNC_WRITE_COILS:
   case MBUS_FUNC_READ_COILS:
     if ((ctx->header.num == 0) || (ctx->header.num > 0x07D0)) {
       return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_VALUE);
     }
-    if ((ctx->header.addr + ctx->header.num) >= ctx->conf.coils) {
+    if (((uint32_t)ctx->header.addr + ctx->header.num) > ctx->conf.coils) {
       return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_ADDRESS);
     }
     break;
@@ -122,8 +118,27 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context) {
     if ((ctx->header.num == 0) || (ctx->header.num > 0x07D0)) {
       return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_VALUE);
     }
-    if ((ctx->header.addr + ctx->header.num) > ctx->conf.discrete) {
+    if (((uint32_t)ctx->header.addr + ctx->header.num) > ctx->conf.discrete) {
       return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_ADDRESS);
+    }
+    break;
+  case MBUS_FUNC_WRITE_COILS:
+    if ((ctx->header.num == 0) || (ctx->header.num > 0x07B0)) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_VALUE);
+    }
+    if (((uint32_t)ctx->header.addr + ctx->header.num) > ctx->conf.coils) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_ADDRESS);
+    }
+    break;
+  case MBUS_FUNC_READ_REGS:
+  case MBUS_FUNC_READ_INPUT_REGS:
+    if ((ctx->header.num == 0) || (ctx->header.num > 0x007D)) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_VALUE);
+    }
+    break;
+  case MBUS_FUNC_WRITE_REGS:
+    if ((ctx->header.num == 0) || (ctx->header.num > 0x007B)) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_VALUE);
     }
     break;
   default:
@@ -134,56 +149,149 @@ inline mbus_status_t mbus_poll_response(mbus_t mb_context) {
     return func(mb_context);
   }
 
-  la = mbus_proto_address((Modbus_ConnectFuncType)ctx->header.func, (int*)&read);
-  if (la > 0) {
-    la += ctx->header.addr;
+  la = mbus_proto_address((Modbus_ConnectFuncType)ctx->header.func, &read);
+  if (la <= 0) {
+    return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
   }
-  if (la < 50001) {
-    ctx->conf.sendbuf[0] = ctx->header.devaddr;
-    ctx->conf.sendbuf[1] = ctx->header.func;
-    ctx->conf.sendbuf[2] = ctx->header.num * 2;
-    if (read && ctx->conf.read) {
-      g_userError = MBUS_RESPONSE_OK;
-      for (int i = 0; i < ctx->header.num; i++) {
-        
-        d = ctx->conf.read(la + i);
-        ctx->conf.sendbuf[3 + (i << 1)] = d >> 8;
-        ctx->conf.sendbuf[3 + (i << 1) + 1] = d & 0xFF;
-      }
-      if (g_userError == MBUS_RESPONSE_OK) {
-          return mbus_send_data(mb_context, 3 + ctx->conf.sendbuf[2]);
-      }else {
-          return mbus_response(mb_context, g_userError);
-      }
-    } else if (ctx->conf.write) {
-      uint16_t *value;
-      ctx->conf.sendbuf[2] = 0;
-      switch (ctx->header.func) {
-      case MBUS_FUNC_WRITE_REG:
-      case MBUS_FUNC_WRITE_COIL:
-        // in both these cases, we should return the same packet that we
-        // received. in both cases, the packes have 6 bytes of data + 2 CRC
-        // bytes = 8 bytes
-        value = (uint16_t *)ctx->conf.recvbuf;
-        ctx->conf.write(la, *value);
-        ctx->conf.sendbuf[2] = ctx->header.addr >> 8;
-        ctx->conf.sendbuf[3] = ctx->header.addr & 0xFF;
-        ctx->conf.sendbuf[4] = ctx->conf.recvbuf[1];
-        ctx->conf.sendbuf[5] = ctx->conf.recvbuf[0];
-        return mbus_send_data(mb_context, 6);
+  la += ctx->header.addr;
 
-      case MBUS_FUNC_WRITE_REGS:
-        value = (uint16_t *)ctx->conf.recvbuf;
-        for (int i = 0; i < ctx->header.num; i++) {
-          ctx->conf.write(la + i, *value++);
-        }
-        ctx->conf.sendbuf[2] = ctx->header.addr >> 8;
-        ctx->conf.sendbuf[3] = ctx->header.addr & 0xFF;
-        ctx->conf.sendbuf[4] = ctx->header.num >> 8;
-        ctx->conf.sendbuf[5] = ctx->header.num & 0xFF;
-        return mbus_send_data(mb_context, 6);
-      } // end of switch
+  if (ctx->conf.sendbuf == 0) {
+    return mbus_response(mb_context, MBUS_RESPONSE_SERVICE_DEVICE_FAILURE);
+  }
+  ctx->conf.sendbuf[0] = ctx->header.devaddr;
+  ctx->conf.sendbuf[1] = ctx->header.func;
+
+  switch (ctx->header.func) {
+  case MBUS_FUNC_READ_COILS:
+  case MBUS_FUNC_READ_DISCRETE: {
+    if (ctx->conf.read == 0) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
     }
+    const uint16_t bytecount = (uint16_t)((ctx->header.num + 7u) / 8u);
+    /* sendbuf must hold: devaddr+func+bytecount+N data+CRC(2) */
+    if (((uint32_t)3u + bytecount + 2u) > ctx->conf.sendbuf_sz) {
+      return mbus_response(mb_context, MBUS_RESPONSE_SERVICE_DEVICE_FAILURE);
+    }
+    ctx->conf.sendbuf[2] = (uint8_t)bytecount;
+    memset(ctx->conf.sendbuf + 3, 0, bytecount);
+    g_userError = MBUS_RESPONSE_OK;
+    for (uint16_t i = 0; i < ctx->header.num; i++) {
+      const uint16_t v = ctx->conf.read((uint32_t)la + i);
+      if (v != 0u) {
+        ctx->conf.sendbuf[3 + (i >> 3)] |= (uint8_t)(1u << (i & 7u));
+      }
+    }
+    if (g_userError != MBUS_RESPONSE_OK) {
+      return mbus_response(mb_context, g_userError);
+    }
+    return mbus_send_data(mb_context, (uint16_t)(3u + bytecount));
+  }
+
+  case MBUS_FUNC_READ_REGS:
+  case MBUS_FUNC_READ_INPUT_REGS: {
+    if (ctx->conf.read == 0) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
+    }
+    const uint16_t bytecount = (uint16_t)(ctx->header.num * 2u);
+    if (((uint32_t)3u + bytecount + 2u) > ctx->conf.sendbuf_sz) {
+      return mbus_response(mb_context, MBUS_RESPONSE_SERVICE_DEVICE_FAILURE);
+    }
+    ctx->conf.sendbuf[2] = (uint8_t)bytecount;
+    g_userError = MBUS_RESPONSE_OK;
+    for (uint16_t i = 0; i < ctx->header.num; i++) {
+      const uint16_t v = ctx->conf.read((uint32_t)la + i);
+      ctx->conf.sendbuf[3 + (i << 1)] = (uint8_t)(v >> 8);
+      ctx->conf.sendbuf[4 + (i << 1)] = (uint8_t)(v & 0xFFu);
+    }
+    if (g_userError != MBUS_RESPONSE_OK) {
+      return mbus_response(mb_context, g_userError);
+    }
+    return mbus_send_data(mb_context, (uint16_t)(3u + bytecount));
+  }
+
+  case MBUS_FUNC_WRITE_REG:
+  case MBUS_FUNC_WRITE_COIL: {
+    if (ctx->conf.write == 0) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
+    }
+    if (ctx->conf.recvbuf == 0 || ctx->conf.recvbuf_sz < 2u ||
+        ctx->conf.sendbuf_sz < 8u) {
+      return mbus_response(mb_context, MBUS_RESPONSE_SERVICE_DEVICE_FAILURE);
+    }
+    /* FSM stored HI at recvbuf[1] and LO at recvbuf[0] (endian-safe combine). */
+    const uint16_t value =
+        (uint16_t)(((uint16_t)ctx->conf.recvbuf[1] << 8) | ctx->conf.recvbuf[0]);
+    g_userError = MBUS_RESPONSE_OK;
+    ctx->conf.write((uint32_t)la, value);
+    if (g_userError != MBUS_RESPONSE_OK) {
+      return mbus_response(mb_context, g_userError);
+    }
+    ctx->conf.sendbuf[2] = (uint8_t)(ctx->header.addr >> 8);
+    ctx->conf.sendbuf[3] = (uint8_t)(ctx->header.addr & 0xFFu);
+    ctx->conf.sendbuf[4] = ctx->conf.recvbuf[1];
+    ctx->conf.sendbuf[5] = ctx->conf.recvbuf[0];
+    return mbus_send_data(mb_context, 6);
+  }
+
+  case MBUS_FUNC_WRITE_REGS: {
+    if (ctx->conf.write == 0) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
+    }
+    const uint16_t expected = (uint16_t)(ctx->header.num * 2u);
+    if (ctx->header.size != expected) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_VALUE);
+    }
+    if (ctx->conf.recvbuf == 0 || ctx->conf.recvbuf_sz < expected ||
+        ctx->conf.sendbuf_sz < 8u) {
+      return mbus_response(mb_context, MBUS_RESPONSE_SERVICE_DEVICE_FAILURE);
+    }
+    g_userError = MBUS_RESPONSE_OK;
+    /* FC16 wire order is big-endian: recvbuf[2i]=hi, recvbuf[2i+1]=lo. */
+    for (uint16_t i = 0; i < ctx->header.num; i++) {
+      const uint16_t v = (uint16_t)(((uint16_t)ctx->conf.recvbuf[i << 1] << 8) |
+                                    ctx->conf.recvbuf[(i << 1) + 1]);
+      ctx->conf.write((uint32_t)la + i, v);
+    }
+    if (g_userError != MBUS_RESPONSE_OK) {
+      return mbus_response(mb_context, g_userError);
+    }
+    ctx->conf.sendbuf[2] = (uint8_t)(ctx->header.addr >> 8);
+    ctx->conf.sendbuf[3] = (uint8_t)(ctx->header.addr & 0xFFu);
+    ctx->conf.sendbuf[4] = (uint8_t)(ctx->header.num >> 8);
+    ctx->conf.sendbuf[5] = (uint8_t)(ctx->header.num & 0xFFu);
+    return mbus_send_data(mb_context, 6);
+  }
+
+  case MBUS_FUNC_WRITE_COILS: {
+    if (ctx->conf.write == 0) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
+    }
+    const uint16_t expected = (uint16_t)((ctx->header.num + 7u) / 8u);
+    if (ctx->header.size != expected) {
+      return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_DATA_VALUE);
+    }
+    if (ctx->conf.recvbuf == 0 || ctx->conf.recvbuf_sz < expected ||
+        ctx->conf.sendbuf_sz < 8u) {
+      return mbus_response(mb_context, MBUS_RESPONSE_SERVICE_DEVICE_FAILURE);
+    }
+    g_userError = MBUS_RESPONSE_OK;
+    for (uint16_t i = 0; i < ctx->header.num; i++) {
+      const uint16_t bit =
+          (uint16_t)((ctx->conf.recvbuf[i >> 3] >> (i & 7u)) & 1u);
+      ctx->conf.write((uint32_t)la + i, bit);
+    }
+    if (g_userError != MBUS_RESPONSE_OK) {
+      return mbus_response(mb_context, g_userError);
+    }
+    ctx->conf.sendbuf[2] = (uint8_t)(ctx->header.addr >> 8);
+    ctx->conf.sendbuf[3] = (uint8_t)(ctx->header.addr & 0xFFu);
+    ctx->conf.sendbuf[4] = (uint8_t)(ctx->header.num >> 8);
+    ctx->conf.sendbuf[5] = (uint8_t)(ctx->header.num & 0xFFu);
+    return mbus_send_data(mb_context, 6);
+  }
+
+  default:
+    break;
   }
   return mbus_response(mb_context, MBUS_RESPONSE_ILLEGAL_FUNCTION);
 }
@@ -224,6 +332,7 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte) {
       ctx->state = MBUS_STATE_REGADDR_HI;
       break;
     case MBUS_FUNC_READ_INPUT_REGS:
+    case MBUS_FUNC_READ_DISCRETE:
     case MBUS_FUNC_READ_COILS:
     case MBUS_FUNC_READ_REGS:
       ctx->state = MBUS_STATE_REGADDR_HI;
@@ -290,7 +399,8 @@ mbus_status_t mbus_poll(mbus_t mb_context, uint8_t byte) {
     } else {
       ctx->header.rnum = ctx->header.num;
       ctx->state = MBUS_STATE_DATA_HI;
-      if (ctx->header.func == MBUS_FUNC_WRITE_REGS) {
+      if (ctx->header.func == MBUS_FUNC_WRITE_REGS ||
+          ctx->header.func == MBUS_FUNC_WRITE_COILS) {
         ctx->state = MBUS_STATE_DATA_SIZE;
       }
     }
@@ -345,9 +455,15 @@ mbus_context_t mbus_context(mbus_t mb_context) {
 }
 
 mbus_status_t mbus_send_error(mbus_t mb_context, Modbus_ResponseType response) {
-  uint16_t *pbuf = (uint16_t *)(g_mbusContext[mb_context].conf.sendbuf + 2);
-  *pbuf = 0x8300 | (uint8_t)response;
-  return mbus_send_data(mb_context, 4);
+  _stmodbus_context_t *ctx = &g_mbusContext[mb_context];
+  /* Exception ADU: devaddr, func|0x80, exception_code, CRC_lo, CRC_hi (5 bytes) */
+  if (ctx->conf.sendbuf == 0 || ctx->conf.sendbuf_sz < 5) {
+    return MBUS_ERROR;
+  }
+  ctx->conf.sendbuf[0] = ctx->header.devaddr;
+  ctx->conf.sendbuf[1] = (uint8_t)(ctx->header.func | 0x80u);
+  ctx->conf.sendbuf[2] = (uint8_t)response;
+  return mbus_send_data(mb_context, 3);
 }
 
 mbus_status_t mbus_send_data(mbus_t mb_context, uint16_t size) {

@@ -109,7 +109,7 @@ uint16_t mbus_protocol_read(uint32_t la) {
   @param value  - value for writing
   @return - none
 */
-void mbus_protocol_write(uint32_t la, uint16_t value) {
+uint16_t mbus_protocol_write(uint32_t la, uint16_t value) {
 
 	//Counter of writings
 	dev_input_registers_30001++;
